@@ -1,11 +1,11 @@
 # BTCUSDT Scalper — Live Paper Trading (5m PDH/PDL confluence, time-capped)
 
-_Simulator only. No real money, no exchange account, no API keys. 5-minute bars, tight 1.5R/2.5R partials, hard 48-bar (240 min) time-stop, 50% position sizing - see README for the full v1-failed/v2-fixed backtest story. Last updated: 2026-10-08T08:54:22.509321+00:00_
+_Simulator only. No real money, no exchange account, no API keys. 5-minute bars, tight 1.5R/2.5R partials, hard 48-bar (240 min) time-stop, 50% position sizing - see README for the full v1-failed/v2-fixed backtest story. Last updated: 2026-10-08T15:58:07.059990+00:00_
 
 ## Current State
 
 - Equity: **100.00 USDT** (started at 100.00)
-- Last processed bar: 2026-10-08 08:45:00+00:00
+- Last processed bar: 2026-10-08 15:50:00+00:00
 - Position: **flat**
 
 ## Genuine Live Stats (since deployment)
