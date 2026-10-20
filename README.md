@@ -1,14 +1,42 @@
-# BTCUSDT Scalper — Live Paper Trading
+# Multi-Symbol Scalper — Live Paper Trading
 
 A free, fully automated **paper-trading simulator** for a fast, time-capped
-scalping strategy on BTCUSDT, 5-minute bars. Runs entirely on GitHub
-Actions — no server, no laptop, no exchange account, and **no real money
-at any point**. Sibling project to [`../swing trading/paper-trading-bot`](../swing%20trading/paper-trading-bot),
-which trades a slower PDH/PDL reversal strategy on 15-minute bars with no
-hold-time limit.
+scalping strategy, trading **BTCUSDT, ETHUSDT, and XRPUSDT independently**
+(each with its own $100 equity pool and trade log) on 5-minute bars. Runs
+entirely on GitHub Actions — no server, no laptop, no exchange account,
+and **no real money at any point**. Sibling project to
+[`../paper-trading-bot`](../paper-trading-bot) (slower PDH/PDL reversal on
+15m bars, BTC only) and [`../scalper bot - high frequency`](../scalper%20bot%20-%20high%20frequency)
+(same engine, looser entry criteria for ~2.5x the trade frequency).
 
 See [`STATUS.md`](STATUS.md) for current position, equity, and recent
-trades — rewritten every run.
+trades per symbol — rewritten every run.
+
+## Multi-symbol expansion
+
+Originally BTC-only. Extending to ETH and XRP surfaced a real bug worth
+knowing about: a first backtest pass on XRP looked catastrophic (5-7%
+win rate, -100% drawdown - account wiped out) using the same `MINTICK =
+0.01` as BTC/ETH. That's wrong for XRP - its real Binance tick size is
+`0.0001`, 100x smaller (confirmed via the exchange's own `PRICE_FILTER`).
+Using the wrong tick size badly distorts the SL/TP buffer and slippage
+math. Fixed by making tick size symbol-aware (`scalper_engine.TICK_SIZES`)
+and re-running: XRP went from "account destroyed" to one of the
+**best**-performing symbols. Full validated numbers (100% sizing, full
+available history per symbol):
+
+| Symbol | History | Trades | Win rate | PF | CAGR | Max DD |
+|---|---|---|---|---|---|---|
+| BTCUSDT | 9.1yr | 1362 | 71.1% | 2.74 | 28.64%/yr | -6.21% |
+| ETHUSDT | 9.1yr | 1025 | 73.5% | 2.59 | 28.81%/yr | -8.08% |
+| XRPUSDT | 8.4yr | 912 | 76.2% | 2.75 | 30.00%/yr | -8.03% |
+
+Remarkably consistent across three different assets - not just BTC's edge
+coincidentally repeating, since XRP and ETH have very different price
+scales, volatility profiles, and listing histories. The swing bot's
+strategy was tested on the same two new symbols for comparison and did
+**not** transfer well (ETH: barely breakeven, PF 1.04; XRP: losing, PF
+0.78, -88% DD even with the tick-size fix applied) - it stays BTC-only.
 
 ## What makes this a scalper, not a copy of the swing bot with faster bars
 
@@ -56,19 +84,20 @@ market structure, momentum), same HTF trend filter and breakout
 protection, same PDH/PDL concept.
 
 **Backtest, full available history (2017-08 to present, 9.1 years),
-`backtest.py` / `sweep.py`-style direct sizing tests:**
+`backtest.py` / `sweep.py`-style direct sizing tests (BTCUSDT):**
 
 | Position size | Trades | Win rate | PF | CAGR | Max DD |
 |---|---|---|---|---|---|
 | 15% | 1362 | 71.07% | 2.965 | 3.90%/yr | -0.94% |
 | 30% | 1362 | 71.07% | 2.926 | 7.93%/yr | -1.88% |
-| **50% (deployed)** | **1362** | **71.07%** | **2.874** | **13.52%/yr** | **-3.13%** |
+| 50% | 1362 | 71.07% | 2.874 | 13.52%/yr | -3.13% |
 | 75% | 1362 | 71.07% | 2.808 | 20.87%/yr | -4.67% |
-| 100% | 1362 | 71.07% | 2.742 | 28.64%/yr | -6.21% |
+| **100% (currently deployed)** | **1362** | **71.07%** | **2.742** | **28.64%/yr** | **-6.21%** |
 
-50% sizing was chosen because it clears the swing bot's own 12%/year
-target (13.52%/yr) at roughly **5x less drawdown** (-3.13% vs the swing
-bot's -15.82% at 60% sizing). Every single calendar year 2017-2026 was
+100% sizing is live (paper money, no real capital) because it clears the
+swing bot's own 12%/year target by a wide margin at **4x less drawdown**
+(-6.21% vs the swing bot's -25.12% at the same 100% sizing). Every single
+calendar year 2017-2026 was
 profitable at every sizing level tested (year PF ranged 1.36-4.70) -
 including 2018's crypto winter and 2022's bear market, the exact regimes
 that hurt the swing bot's ML-filter investigation. This is a meaningfully
@@ -88,19 +117,23 @@ without `is`.
 
 ## How it works
 
-- `paper_trade.py` runs on a GitHub Actions schedule (`.github/workflows/paper_trade.yml`).
-- Each run pulls newly-closed 5m BTCUSDT candles from Binance's free
+- `paper_trade.py` runs on a GitHub Actions schedule (`.github/workflows/paper_trade.yml`),
+  looping over `fetch_data.SYMBOLS` (BTCUSDT, ETHUSDT, XRPUSDT) - each
+  symbol fully independent: own `data/{symbol}_5m.parquet`, own
+  `data/{symbol}_state.json`, own `data/{symbol}_trades.csv`.
+- Each run pulls newly-closed 5m candles per symbol from Binance's free
   public market-data API (`data-api.binance.vision` - the geo-unrestricted
   mirror; `api.binance.com` returns HTTP 451 from GitHub's US-hosted runners).
 - Recomputes indicators and replays `scalper_engine.step_bar` - the SAME
-  function used for backtesting - over bars closed since the last run.
-- **On the very first run**, this replays the entire available history
-  once to build up pivot/signal state, THEN immediately archives that
-  replay's trades to `data/trades_backtest_reference.csv` and resets
-  equity/the live trade log to a clean $100 - applying a lesson learned
-  the hard way on the swing bot (whose first deployment showed its
-  backtest-replay equity as if it were the live balance, and needed a
-  separate reset afterward). Here it's done correctly from the start.
+  function used for backtesting - over bars closed since the last run,
+  with `scalper_engine.MINTICK` set to that symbol's real tick size first.
+- **On a symbol's very first run**, this replays its entire available
+  history once to build up pivot/signal state, THEN immediately archives
+  that replay's trades to `data/{symbol}_trades_backtest_reference.csv`
+  and resets equity/the live trade log to a clean $100 - applying a
+  lesson learned the hard way on the swing bot (whose first deployment
+  showed its backtest-replay equity as if it were the live balance, and
+  needed a separate reset afterward). Here it's done correctly from the start.
 
 ## Running it yourself
 

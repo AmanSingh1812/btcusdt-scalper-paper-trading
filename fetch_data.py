@@ -1,7 +1,7 @@
 """
-Fetch BTCUSDT 5-minute klines from Binance's free, geo-unrestricted
-market-data mirror (same endpoint the swing bot uses - api.binance.com
-returns HTTP 451 from US-hosted infra like GitHub Actions runners).
+Fetch 5-minute klines for multiple symbols from Binance's free,
+geo-unrestricted market-data mirror (api.binance.com returns HTTP 451
+from US-hosted infra like GitHub Actions runners).
 """
 import sys
 import time
@@ -10,11 +10,16 @@ from datetime import datetime, timezone
 import pandas as pd
 import requests
 
-SYMBOL = "BTCUSDT"
 INTERVAL = "5m"
 BASE_URL = "https://data-api.binance.vision/api/v3/klines"
-EARLIEST_AVAILABLE = datetime(2017, 8, 17, tzinfo=timezone.utc)
-PARQUET_FILE = "data/btcusdt_5m.parquet"
+# Earliest available history differs per symbol - BTC/ETH have been on
+# Binance since launch, XRPUSDT was listed later (2018-05-04).
+EARLIEST_AVAILABLE = {
+    "BTCUSDT": datetime(2017, 8, 17, tzinfo=timezone.utc),
+    "ETHUSDT": datetime(2017, 8, 17, tzinfo=timezone.utc),
+    "XRPUSDT": datetime(2018, 5, 4, tzinfo=timezone.utc),
+}
+SYMBOLS = ["BTCUSDT", "ETHUSDT", "XRPUSDT"]
 
 COLUMNS = [
     "open_time", "open", "high", "low", "close", "volume", "close_time",
@@ -22,12 +27,16 @@ COLUMNS = [
 ]
 
 
-def fetch_klines(start_ms: int, end_ms: int) -> list:
+def parquet_file(symbol: str) -> str:
+    return f"data/{symbol.lower()}_5m.parquet"
+
+
+def fetch_klines(symbol: str, start_ms: int, end_ms: int) -> list:
     rows = []
     cur = start_ms
     limit = 1000
     while cur < end_ms:
-        params = {"symbol": SYMBOL, "interval": INTERVAL, "startTime": cur, "endTime": end_ms, "limit": limit}
+        params = {"symbol": symbol, "interval": INTERVAL, "startTime": cur, "endTime": end_ms, "limit": limit}
         resp = requests.get(BASE_URL, params=params, timeout=30)
         resp.raise_for_status()
         data = resp.json()
@@ -41,20 +50,22 @@ def fetch_klines(start_ms: int, end_ms: int) -> list:
     return rows
 
 
-def update_dataset(years_back=None) -> pd.DataFrame:
+def update_dataset(symbol: str, years_back=None) -> pd.DataFrame:
     import os
     os.makedirs("data", exist_ok=True)
-    if os.path.exists(PARQUET_FILE):
-        df = pd.read_parquet(PARQUET_FILE)
+    pf = parquet_file(symbol)
+    if os.path.exists(pf):
+        df = pd.read_parquet(pf)
         start_ms = int(df["open_time"].max().timestamp() * 1000) + 1
     else:
         df = pd.DataFrame(columns=["open_time", "close_time", "open", "high", "low", "close", "volume"])
-        start_dt = EARLIEST_AVAILABLE if years_back is None else max(
-            EARLIEST_AVAILABLE, datetime.now(timezone.utc) - pd.Timedelta(days=365 * years_back))
+        earliest = EARLIEST_AVAILABLE[symbol]
+        start_dt = earliest if years_back is None else max(
+            earliest, datetime.now(timezone.utc) - pd.Timedelta(days=365 * years_back))
         start_ms = int(start_dt.timestamp() * 1000)
 
     end_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-    rows = fetch_klines(start_ms, end_ms)
+    rows = fetch_klines(symbol, start_ms, end_ms)
     if rows:
         new = pd.DataFrame(rows, columns=COLUMNS)
         new["open_time"] = pd.to_datetime(new["open_time"], unit="ms", utc=True)
@@ -69,13 +80,14 @@ def update_dataset(years_back=None) -> pd.DataFrame:
         df["open_time"] = pd.to_datetime(df["open_time"], utc=True)
         df["close_time"] = pd.to_datetime(df["close_time"], utc=True)
         df = df.drop_duplicates(subset="open_time").sort_values("open_time").reset_index(drop=True)
-        df.to_parquet(PARQUET_FILE, index=False)
-        print(f"Fetched {len(new)} new bar(s); dataset now {len(df)} bars, {df['open_time'].min()} to {df['open_time'].max()}", file=sys.stderr)
+        df.to_parquet(pf, index=False)
+        print(f"{symbol}: fetched {len(new)} new bar(s); dataset now {len(df)} bars, {df['open_time'].min()} to {df['open_time'].max()}", file=sys.stderr)
     else:
-        print("No new closed bars available.", file=sys.stderr)
+        print(f"{symbol}: no new closed bars available.", file=sys.stderr)
     return df
 
 
 if __name__ == "__main__":
     years_back = float(sys.argv[1]) if len(sys.argv) > 1 else None
-    update_dataset(years_back)
+    for sym in SYMBOLS:
+        update_dataset(sym, years_back)

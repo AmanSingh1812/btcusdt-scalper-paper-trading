@@ -29,7 +29,16 @@ inventing another untested signal from scratch:
 import numpy as np
 import pandas as pd
 
-MINTICK = 0.01
+# Real exchange tick sizes (Binance PRICE_FILTER) - MINTICK must match the
+# traded symbol or SL/TP buffer and slippage math is badly wrong. Found the
+# hard way: using BTC/ETH's 0.01 tick for XRP (real tick 0.0001, 100x
+# smaller) produced a 5-7% win rate and -100% drawdown in backtesting -
+# not a real "XRP doesn't work" finding, a units bug. Fixed by setting
+# MINTICK (a mutable module global, same pattern as QTY_PCT_OF_EQUITY) to
+# the right value for whichever symbol is about to run, before calling
+# compute_indicators/run_backtest/step_bar.
+TICK_SIZES = {"BTCUSDT": 0.01, "ETHUSDT": 0.01, "XRPUSDT": 0.0001}
+MINTICK = TICK_SIZES["BTCUSDT"]
 INITIAL_CAPITAL = 100.0
 QTY_PCT_OF_EQUITY = 1.00  # see README - backtested: CAGR 28.64%/yr, max DD -6.21%
 
