@@ -1,26 +1,27 @@
 # BTCUSDT Scalper — Live Paper Trading (5m PDH/PDL confluence, time-capped)
 
-_Simulator only. No real money, no exchange account, no API keys. 5-minute bars, tight 1.5R/2.5R partials, hard 48-bar (240 min) time-stop, 100% position sizing - see README for the full v1-failed/v2-fixed backtest story. Last updated: 2026-10-20T06:52:25.199496+00:00_
+_Simulator only. No real money, no exchange account, no API keys. 5-minute bars, tight 1.5R/2.5R partials, hard 48-bar (240 min) time-stop, 100% position sizing - see README for the full v1-failed/v2-fixed backtest story. Last updated: 2026-10-20T12:24:24.233448+00:00_
 
 ## Current State
 
-- Equity: **99.85 USDT** (started at 100.00)
-- Last processed bar: 2026-10-20 06:45:00+00:00
-- Position: **LONG** 0.001220 BTC @ 81872.03 (SL 81600.69, TP1 82278.99, TP2 82550.31, TP1 filled: False)
+- Equity: **99.48 USDT** (started at 100.00)
+- Last processed bar: 2026-10-20 12:15:00+00:00
+- Position: **flat**
 
 ## Genuine Live Stats (since deployment)
 
-- Total trades: 6
-- Win rate: 50.00%
-- Total PnL: -0.11 USDT (-0.11%)
-- Profit factor: 0.745
-- CAGR: -6.52%/year
-- Max drawdown: -0.28%
+- Total trades: 7
+- Win rate: 42.86%
+- Total PnL: -0.52 USDT (-0.52%)
+- Profit factor: 0.378
+- CAGR: -19.02%/year
+- Max drawdown: -0.45%
 
 ## Most Recent Trades
 
 | Entry time | Side | Exit reason | Entry | Exit | Bars held | PnL |
 |---|---|---|---|---|---|---|
+| 2026-10-20 03:30:00 | long | SL | 81872.03 | 81600.67 | 48 | -0.41 |
 | 2026-10-19 15:30:00 | short | TIME | 82214.48 | 81952.01 | 48 | 0.24 |
 | 2026-10-18 22:00:00 | short | SL | 81601.99 | 81705.34 | 9 | -0.21 |
 | 2026-10-18 01:05:00 | short | SL | 81570.46 | 81621.37 | 3 | -0.07 |
