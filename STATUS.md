@@ -1,6 +1,6 @@
 # Multi-Symbol Scalper — Live Paper Trading (5m PDH/PDL confluence, time-capped)
 
-_Simulator only. No real money, no exchange account, no API keys. Each symbol below runs completely independently - its own $100 equity pool, own trade log. 5-minute bars, tight 1.5R/2.5R partials, hard 48-bar (240 min) time-stop, 100% position sizing. See README. Last updated: 2026-10-21T11:50:27.461696+00:00_
+_Simulator only. No real money, no exchange account, no API keys. Each symbol below runs completely independently - its own $100 equity pool, own trade log. 5-minute bars, tight 1.5R/2.5R partials, hard 48-bar (240 min) time-stop, 100% position sizing. See README. Last updated: 2026-10-21T11:54:19.931374+00:00_
 
 ## BTCUSDT
 
