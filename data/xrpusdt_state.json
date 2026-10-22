@@ -51,7 +51,7 @@
   "buy_fired": false,
   "equity": 100.0,
   "position": null,
-  "last_processed_index": 889726,
+  "last_processed_index": 889727,
   "live_since": "2026-10-20 22:35:00+00:00",
   "engine": "scalper-pdh-pdl-5m",
   "symbol": "XRPUSDT",
