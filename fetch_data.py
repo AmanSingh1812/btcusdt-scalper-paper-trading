@@ -19,7 +19,9 @@ EARLIEST_AVAILABLE = {
     "ETHUSDT": datetime(2017, 8, 17, tzinfo=timezone.utc),
     "XRPUSDT": datetime(2018, 5, 4, tzinfo=timezone.utc),
 }
-SYMBOLS = ["BTCUSDT", "ETHUSDT", "XRPUSDT"]
+SYMBOLS = ["BTCUSDT"]  # reverted to BTC-only - see README for the ETH/XRP
+# investigation this repo briefly ran (both validated with real edge, but
+# removed by request, not because they failed)
 
 COLUMNS = [
     "open_time", "open", "high", "low", "close", "volume", "close_time",

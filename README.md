@@ -1,29 +1,29 @@
-# Multi-Symbol Scalper — Live Paper Trading
+# BTCUSDT Scalper — Live Paper Trading
 
 A free, fully automated **paper-trading simulator** for a fast, time-capped
-scalping strategy, trading **BTCUSDT, ETHUSDT, and XRPUSDT independently**
-(each with its own $100 equity pool and trade log) on 5-minute bars. Runs
-entirely on GitHub Actions — no server, no laptop, no exchange account,
-and **no real money at any point**. Sibling project to
+scalping strategy on BTCUSDT, 5-minute bars. Runs entirely on GitHub
+Actions — no server, no laptop, no exchange account, and **no real money
+at any point**. Sibling project to
 [`../paper-trading-bot`](../paper-trading-bot) (slower PDH/PDL reversal on
-15m bars, BTC only) and [`../scalper bot - high frequency`](../scalper%20bot%20-%20high%20frequency)
+15m bars) and [`../scalper bot - high frequency`](../scalper%20bot%20-%20high%20frequency)
 (same engine, looser entry criteria for ~2.5x the trade frequency).
 
 See [`STATUS.md`](STATUS.md) for current position, equity, and recent
-trades per symbol — rewritten every run.
+trades — rewritten every run.
 
-## Multi-symbol expansion
+## ETH/XRP: tried, validated, reverted by request (not because they failed)
 
-Originally BTC-only. Extending to ETH and XRP surfaced a real bug worth
-knowing about: a first backtest pass on XRP looked catastrophic (5-7%
-win rate, -100% drawdown - account wiped out) using the same `MINTICK =
-0.01` as BTC/ETH. That's wrong for XRP - its real Binance tick size is
-`0.0001`, 100x smaller (confirmed via the exchange's own `PRICE_FILTER`).
-Using the wrong tick size badly distorts the SL/TP buffer and slippage
-math. Fixed by making tick size symbol-aware (`scalper_engine.TICK_SIZES`)
-and re-running: XRP went from "account destroyed" to one of the
-**best**-performing symbols. Full validated numbers (100% sizing, full
-available history per symbol):
+This repo briefly traded BTCUSDT, ETHUSDT, and XRPUSDT independently
+(each its own $100 equity pool). Extending to ETH and XRP surfaced a real
+bug worth knowing about: a first backtest pass on XRP looked catastrophic
+(5-7% win rate, -100% drawdown - account wiped out) using the same
+`MINTICK = 0.01` as BTC/ETH. That's wrong for XRP - its real Binance tick
+size is `0.0001`, 100x smaller (confirmed via the exchange's own
+`PRICE_FILTER`). Using the wrong tick size badly distorts the SL/TP
+buffer and slippage math. Fixed by making tick size symbol-aware
+(`scalper_engine.TICK_SIZES`, still in the code) and re-running: XRP went
+from "account destroyed" to one of the **best**-performing symbols. Full
+validated numbers (100% sizing, full available history per symbol):
 
 | Symbol | History | Trades | Win rate | PF | CAGR | Max DD |
 |---|---|---|---|---|---|---|
@@ -36,7 +36,14 @@ coincidentally repeating, since XRP and ETH have very different price
 scales, volatility profiles, and listing histories. The swing bot's
 strategy was tested on the same two new symbols for comparison and did
 **not** transfer well (ETH: barely breakeven, PF 1.04; XRP: losing, PF
-0.78, -88% DD even with the tick-size fix applied) - it stays BTC-only.
+0.78, -88% DD even with the tick-size fix applied) - it was never
+deployed on anything but BTC.
+
+**Reverted back to BTC-only by request** - the ETH/XRP data and live
+trade history were removed, but `fetch_data.py`/`paper_trade.py` still
+loop over a `SYMBOLS` list (currently just `["BTCUSDT"]`), so re-adding
+either symbol is a one-line change plus a re-fetch if wanted again -
+nothing about the validated numbers above changes.
 
 ## What makes this a scalper, not a copy of the swing bot with faster bars
 

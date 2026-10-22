@@ -136,9 +136,8 @@ def process_symbol(symbol: str):
 
 
 def write_status(results: list):
-    lines = ["# Multi-Symbol Scalper — Live Paper Trading (5m PDH/PDL confluence, time-capped)\n"]
-    lines.append(f"_Simulator only. No real money, no exchange account, no API keys. Each symbol below runs "
-                 f"completely independently - its own $100 equity pool, own trade log. 5-minute bars, tight "
+    lines = ["# BTCUSDT Scalper — Live Paper Trading (5m PDH/PDL confluence, time-capped)\n"]
+    lines.append(f"_Simulator only. No real money, no exchange account, no API keys. 5-minute bars, tight "
                  f"{se.RR1}R/{se.RR2}R partials, hard {se.MAX_HOLD_BARS}-bar ({se.MAX_HOLD_BARS*5} min) time-stop, "
                  f"{se.QTY_PCT_OF_EQUITY*100:.0f}% position sizing. See README. "
                  f"Last updated: {datetime.now(timezone.utc).isoformat()}_\n")
