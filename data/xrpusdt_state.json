@@ -24,7 +24,6 @@
     889512
   ],
   "pivot_low_vals": [
-    1.377,
     1.3766,
     1.3784,
     1.3862,
@@ -33,10 +32,10 @@
     1.3733,
     1.3656,
     1.3619,
-    1.3652
+    1.3652,
+    1.3624
   ],
   "pivot_low_bars": [
-    889420,
     889427,
     889452,
     889462,
@@ -45,13 +44,14 @@
     889490,
     889499,
     889508,
-    889515
+    889515,
+    889523
   ],
   "sell_fired": false,
   "buy_fired": false,
   "equity": 100.0,
   "position": null,
-  "last_processed_index": 889525,
+  "last_processed_index": 889526,
   "live_since": "2026-10-20 22:35:00+00:00",
   "engine": "scalper-pdh-pdl-5m",
   "symbol": "XRPUSDT",
