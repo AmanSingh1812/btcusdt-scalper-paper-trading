@@ -48,7 +48,7 @@
     966131
   ],
   "sell_fired": false,
-  "buy_fired": true,
+  "buy_fired": false,
   "equity": 101.0086504223263,
   "position": {
     "side": "long",
@@ -63,7 +63,7 @@
     "tp1_filled": false,
     "entry_comm_total": 0.04041962802013858
   },
-  "last_processed_index": 966141,
+  "last_processed_index": 966142,
   "live_since": "2026-10-08 01:55:00+00:00",
   "engine": "scalper-pdh-pdl-5m",
   "symbol": "BTCUSDT",
