@@ -1,4 +1,4 @@
-pandas
-numpy
-requests
-pyarrow
+pandas==3.0.5
+numpy==2.5.2
+requests==2.34.2
+pyarrow==25.0.1
