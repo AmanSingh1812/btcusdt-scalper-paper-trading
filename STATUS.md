@@ -1,14 +1,15 @@
 # BTCUSDT Scalper — Live Paper Trading (5m PDH/PDL confluence, time-capped)
 
-_Simulator only. No real money, no exchange account, no API keys. 5-minute bars, tight 1.5R/2.5R partials, hard 48-bar (240 min) time-stop, 100% position sizing. See README. Last updated: 2026-11-01T00:28:05.553853+00:00_
+_Simulator only. No real money, no exchange account, no API keys. 5-minute bars, tight 1.5R/2.5R partials, hard 48-bar (240 min) time-stop, 100% position sizing. See README. Last updated: 2026-11-01T00:30:08.934993+00:00_
 
 ## BTCUSDT
 
-- Equity: **101.27 USDT** (started at 100.00)
-- Last processed bar: 2026-11-01 00:20:00+00:00
-- Position: **flat**
+- Equity: **101.23 USDT** (started at 100.00)
+- Last processed bar: 2026-11-01 00:25:00+00:00
+- Position: **SHORT** 0.001304 @ 77643.41000 (SL 77674.52078, TP1 77596.79383, TP2 77565.70305, TP1 filled: False)
+- Signal(s) this run: ['SELL score 4/6 @ 77643.43 (2026-11-01T00:25:00.000000)']
 
-**Live stats**: 13 trades, 69.23% win rate, PF 2.522, CAGR 29.15%/yr, max DD -0.45%
+**Live stats**: 13 trades, 69.23% win rate, PF 2.522, CAGR 28.10%/yr, max DD -0.45%
 
 | Entry time | Side | Exit reason | Entry | Exit | Bars held | PnL |
 |---|---|---|---|---|---|---|
