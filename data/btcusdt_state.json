@@ -24,7 +24,6 @@
     966863
   ],
   "pivot_low_vals": [
-    77526.13,
     77664.0,
     77690.0,
     77697.18,
@@ -33,10 +32,10 @@
     77820.72,
     77789.4,
     77918.21,
-    77858.9
+    77858.9,
+    77910.4
   ],
   "pivot_low_bars": [
-    966782,
     966799,
     966804,
     966812,
@@ -45,13 +44,14 @@
     966841,
     966849,
     966860,
-    966869
+    966869,
+    966874
   ],
   "sell_fired": true,
   "buy_fired": false,
   "equity": 101.14686859748157,
   "position": null,
-  "last_processed_index": 966876,
+  "last_processed_index": 966877,
   "live_since": "2026-10-08 01:55:00+00:00",
   "engine": "scalper-pdh-pdl-5m",
   "symbol": "BTCUSDT",
