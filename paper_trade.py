@@ -87,7 +87,7 @@ def append_trades(symbol: str, new_trades, name="trades.csv"):
     path = sym_path(symbol, name)
     tdf = pd.DataFrame(new_trades)
     header = not os.path.exists(path)
-    tdf.to_csv(path, mode="a", header=header, index=False)
+    tdf.to_csv(path, mode="a", header=header, index=False, date_format="%Y-%m-%d %H:%M:%S")
 
 
 def process_symbol(symbol: str):
