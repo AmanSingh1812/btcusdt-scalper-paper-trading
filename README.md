@@ -11,6 +11,37 @@ at any point**. Sibling project to
 See [`STATUS.md`](STATUS.md) for current position, equity, and recent
 trades — rewritten every run.
 
+## News/sentiment signal (forward-test only, added 2026-11)
+
+A keyless news/sentiment bias (`news_sentiment.py`) combining free RSS
+headlines (CoinDesk, CoinTelegraph, scored by a simple bullish/bearish
+keyword count) and GDELT's free global news "tone" (no signup) for broad
+geopolitical/macro "global incidents" that move risk sentiment without
+necessarily mentioning crypto. Combined into one score roughly in [-1, +1],
+cached and refreshed every ~10 minutes. Two independent, separately
+toggleable effects layered on top of the validated technical signal above -
+never replacing it:
+
+- **Gate** (`NEWS_GATE_ENABLED`, default on): blocks a technical long when
+  sentiment is strongly bad (<= -0.4), blocks a technical short when
+  strongly good (>= +0.4). Can only veto a trade the technical signal
+  already wanted - cannot by itself create one.
+- **Autotrade** (`NEWS_AUTOTRADE_ENABLED`, default on): opens a position
+  purely off *extreme* sentiment (|score| >= 0.75), independent of the
+  technical score, at a much smaller 20% position size (vs. the technical
+  signal's 100%). Tagged `trigger="news"` in `trades.csv`, tracked
+  completely separately from technical trades in STATUS.md's stats.
+
+**Honest limitation**: unlike the technical strategy below, this has NOT
+been backtested against historical data - no affordable historical news
+archive with per-article timestamps exists. It's forward-test-only; results
+will be reported honestly as they accumulate, kept separate from the
+technical track record. Both effects can be disabled independently
+(`NEWS_GATE_ENABLED = False` / `NEWS_AUTOTRADE_ENABLED = False` in
+`scalper_engine.py`) if it underperforms. (CryptoPanic's API - which has
+built-in community sentiment votes - was considered first but now requires
+a paid plan; this uses free RSS instead.)
+
 ## ETH/XRP: tried, validated, reverted by request (not because they failed)
 
 This repo briefly traded BTCUSDT, ETHUSDT, and XRPUSDT independently

@@ -1,6 +1,5 @@
 {
   "pivot_high_vals": [
-    79864.76,
     79608.01,
     77006.01,
     76286.01,
@@ -9,10 +8,10 @@
     76400.0,
     76141.59,
     76126.01,
-    76126.01
+    76126.01,
+    76319.04
   ],
   "pivot_high_bars": [
-    968098,
     968107,
     968129,
     968157,
@@ -21,10 +20,10 @@
     968183,
     968192,
     968200,
-    968201
+    968201,
+    968221
   ],
   "pivot_low_vals": [
-    79520.32,
     76171.08,
     75568.0,
     75818.03,
@@ -33,10 +32,10 @@
     76005.36,
     75944.01,
     75760.51,
-    75766.66
+    75766.66,
+    75208.42
   ],
   "pivot_low_bars": [
-    968087,
     968118,
     968123,
     968145,
@@ -45,13 +44,14 @@
     968167,
     968179,
     968190,
-    968197
+    968197,
+    968211
   ],
   "sell_fired": false,
   "buy_fired": false,
   "equity": 101.14686859748157,
   "position": null,
-  "last_processed_index": 968206,
+  "last_processed_index": 968226,
   "live_since": "2026-10-08 01:55:00+00:00",
   "engine": "scalper-pdh-pdl-5m",
   "symbol": "BTCUSDT",
@@ -63,5 +63,10 @@
   "tp2_enabled": true,
   "use_htf_filter": true,
   "enable_breakout_protection": true,
-  "max_hold_bars": 48
+  "max_hold_bars": 48,
+  "news_gate_enabled": true,
+  "news_autotrade_enabled": true,
+  "news_block_threshold": 0.4,
+  "news_extreme_threshold": 0.75,
+  "news_autotrade_qty_pct": 0.2
 }

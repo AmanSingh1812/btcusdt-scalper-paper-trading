@@ -1,20 +1,22 @@
 # BTCUSDT Scalper — Live Paper Trading (5m PDH/PDL confluence, time-capped)
 
-_Simulator only. No real money, no exchange account, no API keys. 5-minute bars, tight 1.5R/2.5R partials, hard 48-bar (240 min) time-stop, 100% position sizing. See README. Last updated: 2026-11-05T22:50:34.343333+00:00_
+_Simulator only. No real money, no exchange account, no API keys. 5-minute bars, tight 1.5R/2.5R partials, hard 48-bar (240 min) time-stop, 100% position sizing. See README. Last updated: 2026-11-06T00:31:30.282789+00:00_
+
+**News sentiment**: -0.382 (bearish) - RSS keyword score -0.636 over 57 headlines, GDELT global tone +0.000. Gate blocks counter-trend technical entries past ±0.4; autotrade can open a small (20% sized) news-only position past ±0.75 (forward-test only, not backtested - see README). Computed: 2026-11-06T00:31:07.231649+00:00
 
 ## BTCUSDT
 
 - Equity: **101.15 USDT** (started at 100.00)
-- Last processed bar: 2026-11-05 22:45:00+00:00
+- Last processed bar: 2026-11-06 00:25:00+00:00
 - Position: **flat**
 
-**Live stats**: 14 trades, 64.29% win rate, PF 2.201, CAGR 23.15%/yr, max DD -0.45%
+**Live stats**: 14 trades, 64.29% win rate, PF 2.201, CAGR 23.15%/yr, max DD -0.45% (0 news-triggered, +0.00 USDT from those)
 
-| Entry time | Side | Exit reason | Entry | Exit | Bars held | PnL |
-|---|---|---|---|---|---|---|
-| 2026-11-01 00:25:00 | short | SL | 77643.41000 | 77674.54078 | 2 | -0.12 |
-| 2026-10-29 18:40:00 | long | TP2 | 80632.03000 | 80931.65713 | 14 | 0.15 |
-| 2026-10-29 18:40:00 | long | TP1 | 80632.03000 | 80811.79828 | 2 | 0.07 |
-| 2026-10-29 14:05:00 | long | TP2 | 80320.02000 | 81330.10000 | 7 | 0.59 |
-| 2026-10-29 14:05:00 | long | TP1 | 80320.02000 | 80926.06000 | 6 | 0.34 |
+| Entry time | Side | Exit reason | Entry | Exit | Bars held | PnL | Trigger |
+|---|---|---|---|---|---|---|---|
+| 2026-11-01 00:25:00 | short | SL | 77643.41000 | 77674.54078 | 2 | -0.12 | technical |
+| 2026-10-29 18:40:00 | long | TP2 | 80632.03000 | 80931.65713 | 14 | 0.15 | technical |
+| 2026-10-29 18:40:00 | long | TP1 | 80632.03000 | 80811.79828 | 2 | 0.07 | technical |
+| 2026-10-29 14:05:00 | long | TP2 | 80320.02000 | 81330.10000 | 7 | 0.59 | technical |
+| 2026-10-29 14:05:00 | long | TP1 | 80320.02000 | 80926.06000 | 6 | 0.34 | technical |
 

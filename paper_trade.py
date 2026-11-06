@@ -25,6 +25,13 @@ resets equity and the trade log to a clean $100 - the backtest-replay's
 equity growth is archived for reference, never shown as the "live"
 balance (lesson learned on the swing bot's first deployment).
 
+Also computes a news/sentiment bias each run (news_sentiment.py - free RSS
+headlines + GDELT global tone, no API keys) that can (a) block a technical
+entry that runs counter to strong sentiment, and (b) open a small, separately
+-tracked "news"-triggered position on its own past an extreme reading. See
+news_sentiment.py and README for how this is scored and why it's
+forward-test-only (not backtested against historical headlines).
+
 This is a SIMULATOR ONLY. No real orders, no exchange account, no API keys.
 """
 import json
@@ -34,6 +41,7 @@ from datetime import datetime, timezone
 
 import pandas as pd
 
+import news_sentiment as ns
 import scalper_engine as se
 from fetch_data import SYMBOLS, update_dataset
 
@@ -41,7 +49,10 @@ DATA_DIR = "data"
 STATUS_FILE = "STATUS.md"
 
 STEP_KWARGS = dict(score_threshold=se.SCORE_THRESHOLD, rr1=se.RR1, rr2=se.RR2, tp2_enabled=se.TP2_ENABLED,
-                    use_htf_filter=True, enable_breakout_protection=True, max_hold_bars=se.MAX_HOLD_BARS)
+                    use_htf_filter=True, enable_breakout_protection=True, max_hold_bars=se.MAX_HOLD_BARS,
+                    news_gate_enabled=se.NEWS_GATE_ENABLED, news_autotrade_enabled=se.NEWS_AUTOTRADE_ENABLED,
+                    news_block_threshold=se.NEWS_BLOCK_THRESHOLD, news_extreme_threshold=se.NEWS_EXTREME_THRESHOLD,
+                    news_autotrade_qty_pct=se.NEWS_AUTOTRADE_QTY_PCT)
 
 
 def sym_path(symbol: str, name: str) -> str:
@@ -90,7 +101,7 @@ def append_trades(symbol: str, new_trades, name="trades.csv"):
     tdf.to_csv(path, mode="a", header=header, index=False, date_format="%Y-%m-%d %H:%M:%S")
 
 
-def process_symbol(symbol: str):
+def process_symbol(symbol: str, news_bias: float = 0.0):
     se.MINTICK = se.TICK_SIZES[symbol]
     df_raw = update_dataset(symbol)
     df = se.compute_indicators(df_raw.copy())
@@ -106,7 +117,11 @@ def process_symbol(symbol: str):
         close_time = df["open_time"].iloc[i] + pd.Timedelta(minutes=5)
         if close_time.to_pydatetime() > now:
             break
-        state, trades, signal_info = se.step_bar(i, arr, state, **STEP_KWARGS)
+        # news_bias only applied on the most recent bar - it reflects right
+        # now, not what the news situation was when older unprocessed bars
+        # closed (relevant after a long gap between runs).
+        bar_news_bias = news_bias if i == arr["n"] - 1 else 0.0
+        state, trades, signal_info = se.step_bar(i, arr, state, news_bias=bar_news_bias, **STEP_KWARGS)
         new_trades.extend(trades)
         if signal_info["buy_signal"]:
             signals.append(f"BUY score {signal_info['buy_score']}/6 @ {arr['close'][i]:.2f} ({arr['open_time'][i]})")
@@ -135,12 +150,19 @@ def process_symbol(symbol: str):
     return dict(symbol=symbol, state=state, last_bar_time=last_bar_time, signals=signals)
 
 
-def write_status(results: list):
+def write_status(results: list, news: dict):
     lines = ["# BTCUSDT Scalper — Live Paper Trading (5m PDH/PDL confluence, time-capped)\n"]
     lines.append(f"_Simulator only. No real money, no exchange account, no API keys. 5-minute bars, tight "
                  f"{se.RR1}R/{se.RR2}R partials, hard {se.MAX_HOLD_BARS}-bar ({se.MAX_HOLD_BARS*5} min) time-stop, "
                  f"{se.QTY_PCT_OF_EQUITY*100:.0f}% position sizing. See README. "
                  f"Last updated: {datetime.now(timezone.utc).isoformat()}_\n")
+
+    mood = "bearish" if news["combined"] <= -0.15 else "bullish" if news["combined"] >= 0.15 else "neutral"
+    lines.append(f"**News sentiment**: {news['combined']:+.3f} ({mood}) - RSS keyword score {news['rss_score']:+.3f} "
+                 f"over {news['headline_count']} headlines, GDELT global tone {news['gdelt_score']:+.3f}. "
+                 f"Gate blocks counter-trend technical entries past ±{se.NEWS_BLOCK_THRESHOLD}; autotrade can open "
+                 f"a small ({se.NEWS_AUTOTRADE_QTY_PCT*100:.0f}% sized) news-only position past ±{se.NEWS_EXTREME_THRESHOLD} "
+                 f"(forward-test only, not backtested - see README). Computed: {news['computed_at']}\n")
 
     for r in results:
         symbol, state, last_bar_time, signals = r["symbol"], r["state"], r["last_bar_time"], r["signals"]
@@ -168,13 +190,15 @@ def write_status(results: list):
             cagr = ((state["equity"] / se.INITIAL_CAPITAL) ** (1 / years) - 1) * 100
             eq_curve = se.INITIAL_CAPITAL + all_trades.sort_values("exit_time")["pnl"].cumsum()
             max_dd = ((eq_curve - eq_curve.cummax()) / eq_curve.cummax()).min() * 100
+            news_trades = all_trades[all_trades.get("trigger", "technical") == "news"] if "trigger" in all_trades else all_trades.iloc[0:0]
             lines.append(f"\n**Live stats**: {len(all_trades)} trades, {len(wins)/len(all_trades)*100:.2f}% win rate, "
-                         f"PF {pf:.3f}, CAGR {cagr:.2f}%/yr, max DD {max_dd:.2f}%\n")
-            lines.append("| Entry time | Side | Exit reason | Entry | Exit | Bars held | PnL |")
-            lines.append("|---|---|---|---|---|---|---|")
+                         f"PF {pf:.3f}, CAGR {cagr:.2f}%/yr, max DD {max_dd:.2f}% "
+                         f"({len(news_trades)} news-triggered, {news_trades['pnl'].sum():+.2f} USDT from those)\n")
+            lines.append("| Entry time | Side | Exit reason | Entry | Exit | Bars held | PnL | Trigger |")
+            lines.append("|---|---|---|---|---|---|---|---|")
             for _, t in all_trades.tail(5).iloc[::-1].iterrows():
                 lines.append(f"| {t['entry_time']} | {t['side']} | {t['reason']} | {t['entry_px']:.5f} | "
-                             f"{t['exit_px']:.5f} | {t['bars_held']:.0f} | {t['pnl']:.2f} |")
+                             f"{t['exit_px']:.5f} | {t['bars_held']:.0f} | {t['pnl']:.2f} | {t.get('trigger', 'technical')} |")
         else:
             lines.append("\n**Live stats**: no trades yet since deployment - equity is exactly the $100 starting balance.")
         lines.append("")
@@ -184,8 +208,11 @@ def write_status(results: list):
 
 
 def main():
-    results = [process_symbol(symbol) for symbol in SYMBOLS]
-    write_status(results)
+    news = ns.compute_news_score()
+    print(f"news sentiment: {news['combined']:+.3f} (rss={news['rss_score']:+.3f} over "
+          f"{news['headline_count']} headlines, gdelt={news['gdelt_score']:+.3f})", file=sys.stderr)
+    results = [process_symbol(symbol, news_bias=news["combined"]) for symbol in SYMBOLS]
+    write_status(results, news)
 
 
 if __name__ == "__main__":

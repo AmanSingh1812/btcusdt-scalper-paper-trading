@@ -65,6 +65,29 @@ MAX_HOLD_BARS = 48  # 48 * 5min = 4 hours - the scalping-defining cap, absent fr
 COMMISSION_PCT = 0.0004
 SLIPPAGE_TICKS = 2
 
+# News/sentiment bias (see news_sentiment.py) - a float roughly in [-1, +1],
+# negative = bad for the market, positive = good, computed fresh each run
+# and passed into step_bar as news_bias (default 0.0 = no effect, so every
+# existing backtest call site that doesn't pass it is byte-for-byte
+# unchanged). Two independent, separately toggleable effects:
+#   - gate: blocks a technical long when news_bias <= -NEWS_BLOCK_THRESHOLD,
+#     blocks a technical short when news_bias >= +NEWS_BLOCK_THRESHOLD.
+#     Can only veto a trade the technical signal already wanted - cannot by
+#     itself create one. Never affects the validated technical track record
+#     beyond occasionally skipping a trade.
+#   - autotrade: opens a position purely off extreme sentiment
+#     (|news_bias| >= NEWS_EXTREME_THRESHOLD) even without a qualifying
+#     technical score, at a much smaller NEWS_AUTOTRADE_QTY_PCT size since
+#     this path has no historical backtest behind it (no affordable
+#     historical headline archive exists) - it's forward-test-only, and
+#     every such trade is tagged trigger="news" in trades.csv so its
+#     results are tracked completely separately from technical trades.
+NEWS_GATE_ENABLED = True
+NEWS_AUTOTRADE_ENABLED = True
+NEWS_BLOCK_THRESHOLD = 0.4
+NEWS_EXTREME_THRESHOLD = 0.75
+NEWS_AUTOTRADE_QTY_PCT = 0.20
+
 
 def ema(s: pd.Series, length: int) -> pd.Series:
     return s.ewm(span=length, adjust=False).mean()
@@ -191,7 +214,10 @@ def new_state(initial_capital=INITIAL_CAPITAL) -> dict:
 
 def step_bar(i, arr, state, score_threshold=SCORE_THRESHOLD, rr1=RR1, rr2=RR2, tp2_enabled=TP2_ENABLED,
              use_htf_filter=True, enable_breakout_protection=True, sl_atr_mult=SL_ATR_MULT,
-             buffer_ticks=BUFFER_TICKS, max_hold_bars=MAX_HOLD_BARS, ml_gate=None):
+             buffer_ticks=BUFFER_TICKS, max_hold_bars=MAX_HOLD_BARS, ml_gate=None, news_bias=0.0,
+             news_gate_enabled=NEWS_GATE_ENABLED, news_autotrade_enabled=NEWS_AUTOTRADE_ENABLED,
+             news_block_threshold=NEWS_BLOCK_THRESHOLD, news_extreme_threshold=NEWS_EXTREME_THRESHOLD,
+             news_autotrade_qty_pct=NEWS_AUTOTRADE_QTY_PCT):
     tick_buffer = MINTICK * buffer_ticks
     trades = []
 
@@ -245,6 +271,15 @@ def step_bar(i, arr, state, score_threshold=SCORE_THRESHOLD, rr1=RR1, rr2=RR2, t
         if sell_qualified:
             sell_qualified = bool(ml_gate("sell", i, arr, common))
 
+    if news_gate_enabled:
+        if news_bias <= -news_block_threshold:
+            buy_qualified = False  # bad news: block new longs
+        if news_bias >= news_block_threshold:
+            sell_qualified = False  # good news: block new shorts
+
+    news_extreme_bear = news_autotrade_enabled and news_bias <= -news_extreme_threshold
+    news_extreme_bull = news_autotrade_enabled and news_bias >= news_extreme_threshold
+
     if arr["new_day"][i]:
         state["sell_fired"] = False
         state["buy_fired"] = False
@@ -287,7 +322,7 @@ def step_bar(i, arr, state, score_threshold=SCORE_THRESHOLD, rr1=RR1, rr2=RR2, t
             pnl = price_pnl - exit_comm - entry_comm_share
             trades.append(dict(side=side, entry_time=position["entry_time"], exit_time=arr["open_time"][i],
                                 reason=reason, qty=qty_exit, entry_px=position["entry_px"], exit_px=exit_px,
-                                bars_held=bars_held, pnl=pnl))
+                                bars_held=bars_held, pnl=pnl, trigger=position.get("trigger", "technical")))
             position["qty_remaining"] -= qty_exit
             if reason in ("SL", "TP2", "TP1(full)", "TIME") or position["qty_remaining"] <= 1e-12:
                 position = None
@@ -297,9 +332,14 @@ def step_bar(i, arr, state, score_threshold=SCORE_THRESHOLD, rr1=RR1, rr2=RR2, t
             is_flat = position is None
 
     sell_signal = buy_signal = False
+    sell_is_news = buy_is_news = False
     if is_flat:
-        sell_signal = sell_qualified and arr["near_pdh"][i] and not state["sell_fired"]
-        buy_signal = buy_qualified and arr["near_pdl"][i] and not state["buy_fired"]
+        sell_technical = sell_qualified and arr["near_pdh"][i]
+        buy_technical = buy_qualified and arr["near_pdl"][i]
+        sell_signal = (sell_technical or news_extreme_bear) and not state["sell_fired"]
+        buy_signal = (buy_technical or news_extreme_bull) and not state["buy_fired"]
+        sell_is_news = sell_signal and not sell_technical
+        buy_is_news = buy_signal and not buy_technical
         if sell_signal:
             state["sell_fired"] = True
         if buy_signal:
@@ -309,30 +349,34 @@ def step_bar(i, arr, state, score_threshold=SCORE_THRESHOLD, rr1=RR1, rr2=RR2, t
         if (sell_signal or buy_signal) and pd.notna(atr_i) and pd.notna(pdh_i) and pd.notna(pdl_i):
             entry_close = arr["close"][i]
             if sell_signal:
+                qty_pct = news_autotrade_qty_pct if sell_is_news else QTY_PCT_OF_EQUITY
                 valid_swing = ph_size >= 1 and phv[-1] > entry_close
                 sl_price = (phv[-1] + tick_buffer) if valid_swing else (entry_close + sl_atr_mult * atr_i)
                 risk = sl_price - entry_close
                 tp1, tp2 = entry_close - risk * rr1, entry_close - risk * rr2
                 if risk > 0:
                     fill_px = entry_close - MINTICK * SLIPPAGE_TICKS
-                    qty = (state["equity"] * QTY_PCT_OF_EQUITY) / fill_px
+                    qty = (state["equity"] * qty_pct) / fill_px
                     entry_comm = fill_px * qty * COMMISSION_PCT
                     state["position"] = dict(side="short", entry_time=arr["open_time"][i], entry_bar=i, entry_px=fill_px,
                                               qty_total=qty, qty_remaining=qty, sl=sl_price, tp1=tp1, tp2=tp2,
-                                              tp1_filled=False, entry_comm_total=entry_comm)
+                                              tp1_filled=False, entry_comm_total=entry_comm,
+                                              trigger=("news" if sell_is_news else "technical"))
                     state["equity"] -= entry_comm
             else:
+                qty_pct = news_autotrade_qty_pct if buy_is_news else QTY_PCT_OF_EQUITY
                 valid_swing = pl_size >= 1 and plv[-1] < entry_close
                 sl_price = (plv[-1] - tick_buffer) if valid_swing else (entry_close - sl_atr_mult * atr_i)
                 risk = entry_close - sl_price
                 tp1, tp2 = entry_close + risk * rr1, entry_close + risk * rr2
                 if risk > 0:
                     fill_px = entry_close + MINTICK * SLIPPAGE_TICKS
-                    qty = (state["equity"] * QTY_PCT_OF_EQUITY) / fill_px
+                    qty = (state["equity"] * qty_pct) / fill_px
                     entry_comm = fill_px * qty * COMMISSION_PCT
                     state["position"] = dict(side="long", entry_time=arr["open_time"][i], entry_bar=i, entry_px=fill_px,
                                               qty_total=qty, qty_remaining=qty, sl=sl_price, tp1=tp1, tp2=tp2,
-                                              tp1_filled=False, entry_comm_total=entry_comm)
+                                              tp1_filled=False, entry_comm_total=entry_comm,
+                                              trigger=("news" if buy_is_news else "technical"))
                     state["equity"] -= entry_comm
 
     signal_info = dict(buy_signal=buy_signal, sell_signal=sell_signal, buy_score=buy_score, sell_score=sell_score)
