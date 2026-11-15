@@ -78,9 +78,19 @@ def update_dataset(symbol: str, years_back=None) -> pd.DataFrame:
         df = pd.concat([df, new], ignore_index=True)
         # defensive: concatenating datetime64 columns of differing unit precision
         # (e.g. existing parquet at [us] vs freshly-parsed [ns]) can silently
-        # degrade the result to dtype=object - force back to a real datetime64
-        df["open_time"] = pd.to_datetime(df["open_time"], utc=True)
-        df["close_time"] = pd.to_datetime(df["close_time"], utc=True)
+        # degrade the result to dtype=object - force back to a real datetime64.
+        # Pin the unit to [us] explicitly (not just "a real datetime64") - on a
+        # from-scratch first fetch (no existing parquet to inherit precision
+        # from), pd.to_datetime(..., unit="ms") produces genuine ms-precision
+        # timestamps on this pandas version, and compute_indicators'
+        # groupby(date).shift(1).reindex(date) silently returns an
+        # object-dtype column full of None (not NaN) for ms-precision keys -
+        # us-precision (what a parquet round-trip normalizes to anyway, via
+        # pyarrow) works correctly. Dormant here (this repo already has a
+        # parquet file) - found deploying a from-scratch sibling repo, which
+        # crashed on its very first run with no prior parquet.
+        df["open_time"] = pd.to_datetime(df["open_time"], utc=True).astype("datetime64[us, UTC]")
+        df["close_time"] = pd.to_datetime(df["close_time"], utc=True).astype("datetime64[us, UTC]")
         df = df.drop_duplicates(subset="open_time").sort_values("open_time").reset_index(drop=True)
         df.to_parquet(pf, index=False)
         print(f"{symbol}: fetched {len(new)} new bar(s); dataset now {len(df)} bars, {df['open_time'].min()} to {df['open_time'].max()}", file=sys.stderr)
