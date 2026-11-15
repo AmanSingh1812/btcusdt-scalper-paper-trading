@@ -107,8 +107,18 @@ def compute_indicators(df: pd.DataFrame, zone_pct=ZONE_PCT, htf_rule=HTF_RULE, h
     date = df["open_time"].dt.floor("D")
     daily = df.groupby(date).agg(day_high=("high", "max"), day_low=("low", "min")).shift(1)
     day_map = daily.reindex(date).reset_index(drop=True)
-    df["pdh"] = day_map["day_high"].values
-    df["pdl"] = day_map["day_low"].values
+    # .astype(float) guards against a pandas quirk seen on a from-scratch
+    # first fetch (no prior parquet to normalize dtype/precision through):
+    # groupby(date).shift(1).reindex(date) can come back as dtype=object
+    # with None for unmatched/missing rows instead of a clean float64 NaN -
+    # None then crashes any direct arithmetic on pdh/pdl downstream
+    # (step_bar's fired-flag reset does `arr["pdh"][i] - ...`, unguarded).
+    # astype(float) converts None -> NaN safely regardless of why it
+    # happened, so this holds even if the precise pandas trigger changes.
+    # Dormant here (this repo already has history) - found deploying a
+    # from-scratch sibling repo, which crashed on its very first run.
+    df["pdh"] = day_map["day_high"].astype(float).values
+    df["pdl"] = day_map["day_low"].astype(float).values
     df["new_day"] = date.ne(date.shift(1)).values
     df.loc[0, "new_day"] = True
 
