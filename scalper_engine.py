@@ -271,11 +271,14 @@ def step_bar(i, arr, state, score_threshold=SCORE_THRESHOLD, rr1=RR1, rr2=RR2, t
         if sell_qualified:
             sell_qualified = bool(ml_gate("sell", i, arr, common))
 
+    news_blocked_buy = news_blocked_sell = False
     if news_gate_enabled:
-        if news_bias <= -news_block_threshold:
+        if news_bias <= -news_block_threshold and buy_qualified:
             buy_qualified = False  # bad news: block new longs
-        if news_bias >= news_block_threshold:
+            news_blocked_buy = True
+        if news_bias >= news_block_threshold and sell_qualified:
             sell_qualified = False  # good news: block new shorts
+            news_blocked_sell = True
 
     news_extreme_bear = news_autotrade_enabled and news_bias <= -news_extreme_threshold
     news_extreme_bull = news_autotrade_enabled and news_bias >= news_extreme_threshold
@@ -379,7 +382,8 @@ def step_bar(i, arr, state, score_threshold=SCORE_THRESHOLD, rr1=RR1, rr2=RR2, t
                                               trigger=("news" if buy_is_news else "technical"))
                     state["equity"] -= entry_comm
 
-    signal_info = dict(buy_signal=buy_signal, sell_signal=sell_signal, buy_score=buy_score, sell_score=sell_score)
+    signal_info = dict(buy_signal=buy_signal, sell_signal=sell_signal, buy_score=buy_score, sell_score=sell_score,
+                       news_blocked_buy=news_blocked_buy, news_blocked_sell=news_blocked_sell)
     return state, trades, signal_info
 
 

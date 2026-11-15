@@ -72,11 +72,11 @@ def load_state(symbol: str):
             pivot_low_vals=raw["pivot_low_vals"], pivot_low_bars=raw["pivot_low_bars"],
             sell_fired=raw["sell_fired"], buy_fired=raw["buy_fired"], equity=raw["equity"],
             position=position,
-        ), raw["last_processed_index"], raw["live_since"]
-    return se.new_state(), -1, None
+        ), raw["last_processed_index"], raw["live_since"], raw.get("news_blocked_buy_count", 0), raw.get("news_blocked_sell_count", 0)
+    return se.new_state(), -1, None, 0, 0
 
 
-def save_state(symbol: str, state, last_processed_index, live_since):
+def save_state(symbol: str, state, last_processed_index, live_since, news_blocked_buy_count, news_blocked_sell_count):
     position = dict(state["position"]) if state["position"] is not None else None
     if position is not None:
         position["entry_time"] = pd.Timestamp(position["entry_time"]).isoformat()
@@ -85,6 +85,7 @@ def save_state(symbol: str, state, last_processed_index, live_since):
         pivot_low_vals=state["pivot_low_vals"], pivot_low_bars=state["pivot_low_bars"],
         sell_fired=state["sell_fired"], buy_fired=state["buy_fired"], equity=state["equity"],
         position=position, last_processed_index=last_processed_index, live_since=live_since,
+        news_blocked_buy_count=news_blocked_buy_count, news_blocked_sell_count=news_blocked_sell_count,
         engine="scalper-pdh-pdl-5m", symbol=symbol, tick_size=se.TICK_SIZES[symbol],
         qty_pct_of_equity=se.QTY_PCT_OF_EQUITY, **STEP_KWARGS,
     )
@@ -107,7 +108,7 @@ def process_symbol(symbol: str, news_bias: float = 0.0):
     df = se.compute_indicators(df_raw.copy())
     arr = se.prepare_arrays(df)
 
-    state, last_processed_index, live_since = load_state(symbol)
+    state, last_processed_index, live_since, news_blocked_buy_count, news_blocked_sell_count = load_state(symbol)
     is_first_run = live_since is None
 
     now = datetime.now(timezone.utc)
@@ -127,6 +128,12 @@ def process_symbol(symbol: str, news_bias: float = 0.0):
             signals.append(f"BUY score {signal_info['buy_score']}/6 @ {arr['close'][i]:.2f} ({arr['open_time'][i]})")
         if signal_info["sell_signal"]:
             signals.append(f"SELL score {signal_info['sell_score']}/6 @ {arr['close'][i]:.2f} ({arr['open_time'][i]})")
+        if signal_info["news_blocked_buy"]:
+            news_blocked_buy_count += 1
+            signals.append(f"NEWS BLOCKED a qualifying long @ {arr['close'][i]:.2f} ({arr['open_time'][i]})")
+        if signal_info["news_blocked_sell"]:
+            news_blocked_sell_count += 1
+            signals.append(f"NEWS BLOCKED a qualifying short @ {arr['close'][i]:.2f} ({arr['open_time'][i]})")
         processed_upto = i
 
     if is_first_run:
@@ -136,10 +143,11 @@ def process_symbol(symbol: str, news_bias: float = 0.0):
         state["equity"] = se.INITIAL_CAPITAL
         new_trades = []
         live_since = str(df["open_time"].iloc[processed_upto]) if processed_upto >= 0 else None
+        news_blocked_buy_count = news_blocked_sell_count = 0
     else:
         append_trades(symbol, new_trades)
 
-    save_state(symbol, state, processed_upto, live_since)
+    save_state(symbol, state, processed_upto, live_since, news_blocked_buy_count, news_blocked_sell_count)
     last_bar_time = df["open_time"].iloc[processed_upto] if processed_upto >= 0 else "none yet"
     print(f"{symbol}: processed through bar index {processed_upto} ({last_bar_time}); "
           f"{len(new_trades)} trade(s) closed this run; equity={state['equity']:.2f}; "
@@ -147,7 +155,8 @@ def process_symbol(symbol: str, news_bias: float = 0.0):
     for s in signals[-5:]:
         print(f"{symbol} SIGNAL: {s}", file=sys.stderr)
 
-    return dict(symbol=symbol, state=state, last_bar_time=last_bar_time, signals=signals)
+    return dict(symbol=symbol, state=state, last_bar_time=last_bar_time, signals=signals,
+                news_blocked_buy_count=news_blocked_buy_count, news_blocked_sell_count=news_blocked_sell_count)
 
 
 def write_status(results: list, news: dict):
@@ -169,6 +178,8 @@ def write_status(results: list, news: dict):
         lines.append(f"## {symbol}\n")
         lines.append(f"- Equity: **{state['equity']:.2f} USDT** (started at {se.INITIAL_CAPITAL:.2f})")
         lines.append(f"- Last processed bar: {last_bar_time}")
+        lines.append(f"- Technical setups blocked by news gate since reset: {r['news_blocked_buy_count']} long(s), "
+                     f"{r['news_blocked_sell_count']} short(s)")
         pos = state["position"]
         if pos is None:
             lines.append("- Position: **flat**")
