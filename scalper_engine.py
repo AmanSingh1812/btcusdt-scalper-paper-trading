@@ -194,9 +194,12 @@ def compute_indicators(df: pd.DataFrame, zone_pct=ZONE_PCT, htf_rule=HTF_RULE, h
 
     htf = df.set_index("open_time")["close"].resample(htf_rule).agg(["last"]).dropna()
     htf["ema"] = ema(htf["last"], htf_ema_len)
-    htf = htf.reset_index().rename(columns={"open_time": "htf_close_time", "last": "htf_close"})
-    merged = pd.merge_asof(df[["open_time"]], htf, left_on="open_time", right_on="htf_close_time",
-                            direction="backward", allow_exact_matches=False)
+    htf = htf.reset_index().rename(columns={"open_time": "htf_open_time", "last": "htf_close"})
+    # resample() labels a candle by its START, so its close may only be used once it has finished
+    htf["available_at"] = (htf["htf_open_time"] + pd.Timedelta(htf_rule)).astype(df["open_time"].dtype)
+    bar_close = (df["open_time"] + df["open_time"].diff().median()).astype(df["open_time"].dtype)
+    merged = pd.merge_asof(pd.DataFrame({"bar_close": bar_close}), htf, left_on="bar_close",
+                           right_on="available_at", direction="backward")
     df["htf_trend_up"] = (merged["htf_close"] > merged["ema"]).fillna(False).values
 
     df["strong_break_up"] = ((c > df["pdh"] + BREAKOUT_ATR_MULT * df["atr"]) & (v > vol_ma * BREAKOUT_VOL_MULT) & df["momentum_bull"]).fillna(False)

@@ -1,5 +1,7 @@
 # BTCUSDT Scalper — Live Paper Trading
 
+> **Correction, 2026-11-26:** the higher-timeframe trend filter used the close of a candle that had not finished yet (look-ahead). Every backtest and live result produced before this date is overstated and should not be relied on, including the performance numbers below. The filter now uses completed candles only; the live balance was reset to $100 and the old trade log archived in `data/` (`*lookahead_archive.csv`).
+
 A free, fully automated **paper-trading simulator** for a fast, time-capped
 scalping strategy on BTCUSDT, 5-minute bars. Runs entirely on GitHub
 Actions — no server, no laptop, no exchange account, and **no real money
