@@ -75,6 +75,8 @@ def update_dataset(symbol: str, years_back=None) -> pd.DataFrame:
         for c in ["open", "high", "low", "close", "volume"]:
             new[c] = new[c].astype(float)
         new = new[["open_time", "close_time", "open", "high", "low", "close", "volume"]]
+        # never store a still-forming candle: later runs start after it, so it would stay wrong forever
+        new = new[new["close_time"] < pd.Timestamp(end_ms, unit="ms", tz="UTC")]
         df = pd.concat([df, new], ignore_index=True)
         # defensive: concatenating datetime64 columns of differing unit precision
         # (e.g. existing parquet at [us] vs freshly-parsed [ns]) can silently
